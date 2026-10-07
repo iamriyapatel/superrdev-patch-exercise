@@ -6,20 +6,31 @@ export function useTasks(query, status, page, pageSize) {
   const [total, setTotal] = useState(0);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
+  const [retryCount, setRetryCount] = useState(0);
 
   useEffect(() => {
+    const controller = new AbortController();
     setLoading(true);
+    setError(null);
 
-    fetchTasks({ query, status, page, pageSize })
+    fetchTasks({ query, status, page, pageSize, signal: controller.signal })
       .then((data) => {
         setTasks(data.items);
         setTotal(data.total);
-        setLoading(false);
       })
       .catch((err) => {
-        setError(err.message);
+        if (err.name !== 'AbortError') {
+          setError(err.message);
+        }
+      })
+      .finally(() => {
+        if (!controller.signal.aborted) {
+          setLoading(false);
+        }
       });
-  }, [query, status, page, pageSize]);
 
-  return { tasks, total, loading, error };
+    return () => controller.abort();
+  }, [query, status, page, pageSize, retryCount]);
+
+  return { tasks, total, loading, error, retry: () => setRetryCount((count) => count + 1) };
 }

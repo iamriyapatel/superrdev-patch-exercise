@@ -1,10 +1,15 @@
-export default function TaskTable({ tasks, loading, error }) {
+export default function TaskTable({ tasks, loading, error, onRetry }) {
   if (loading) {
     return <div className="state-message">Loading tasks...</div>;
   }
 
   if (error) {
-    return <div className="state-message error">Error: {error}</div>;
+    return (
+      <div className="state-message error" role="alert">
+        <p>We couldn’t load the tasks. Check your connection and try again.</p>
+        <button type="button" onClick={onRetry}>Retry</button>
+      </div>
+    );
   }
 
   if (!tasks || tasks.length === 0) {

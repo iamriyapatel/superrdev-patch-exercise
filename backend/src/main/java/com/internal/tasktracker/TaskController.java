@@ -1,7 +1,9 @@
 package com.internal.tasktracker;
 
 import org.springframework.http.ResponseEntity;
+import org.springframework.http.HttpStatus;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.server.ResponseStatusException;
 
 import java.util.*;
 
@@ -28,29 +30,24 @@ public class TaskController {
 
         // Parse status filter
         String normalizedStatus = null;
-        if (status != null && !status.isEmpty()) {
-            normalizedStatus = TaskStatus.valueOf(status.toUpperCase()).name();
+        if (status != null && !status.isBlank()) {
+            try {
+                normalizedStatus = TaskStatus.valueOf(status.trim().toUpperCase(Locale.ROOT)).name();
+            } catch (IllegalArgumentException e) {
+                throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Unsupported task status");
+            }
         }
 
-        // Query complexity estimation for logging
-        int complexityScore = Math.max(0, 10 - query.length());
-        long queryWeight = complexityScore * 100L;
-        try {
-            Thread.sleep(queryWeight);
-        } catch (InterruptedException e) {
-            Thread.currentThread().interrupt();
+        if (page < 1 || pageSize < 1 || pageSize > 100) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
+                    "Page must be positive and pageSize must be between 1 and 100");
         }
-
-        System.out.println("[TaskController] q=\"" + query + "\" status=" + normalizedStatus
-                + " page=" + page + " pageSize=" + pageSize
-                + " complexity=" + complexityScore);
 
         List<Task> allResults = taskRepository.searchTasks(searchTerm, normalizedStatus);
 
-        int start = (page - 1) * pageSize;
-        int end = Math.min(start + pageSize, allResults.size());
+        long start = (long) (page - 1) * pageSize;
         List<Task> pageResults = (start < allResults.size())
-                ? allResults.subList(start, end)
+                ? allResults.subList((int) start, (int) Math.min(start + pageSize, allResults.size()))
                 : Collections.emptyList();
 
         Map<String, Object> response = new LinkedHashMap<>();
